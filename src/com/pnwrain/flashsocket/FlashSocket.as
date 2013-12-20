@@ -1,9 +1,10 @@
 package com.pnwrain.flashsocket
 {
 	import com.adobe.serialization.json.JSON;
-	import com.demonsters.debugger.MonsterDebugger;
 	import com.jimisaacs.data.URL;
 	import com.pnwrain.flashsocket.events.FlashSocketEvent;
+	import flash.utils.getTimer;
+	import flash.utils.setTimeout;
 	
 	import flash.events.Event;
 	import flash.events.EventDispatcher;
@@ -43,7 +44,17 @@ package com.pnwrain.flashsocket
 		private var ackId:int = 0;
 		private var acks:Object = { };
 		
-		public function FlashSocket( domain:String, protocol:String=null, proxyHost:String = null, proxyPort:int = 0, headers:String = null)
+		//RW sync stuff
+		private var _delay:int = 0;
+		private var _latency:Number = 0;
+		private var _latencies:Vector.<Number>;
+		private var _estimatedServerTime:Number;
+		private var _pingTimer:Timer;
+		private var _pingSent:int;
+		private var _offset:int;
+		private var _checkPeriod:int;
+		
+		public function FlashSocket( domain:String, delay:int=200, checkPeriod:int=1000, protocol:String=null, proxyHost:String = null, proxyPort:int = 0, headers:String = null)
 		{
 			var httpProtocal:String = "http";
 			var webSocketProtocal:String = "ws";
@@ -61,8 +72,11 @@ package com.pnwrain.flashsocket
 
 			this.socketURL = webSocketProtocal+"://" + domain + "/socket.io/1/flashsocket";
 			//this.socketURL = domain + "/socket.io/1/flashsocket";
-			this.callerUrl = httpProtocal+"://mobile-games.jimib.co.uk/pong.swf";
+			//this.callerUrl = httpProtocal+"://mobile-games.jimib.co.uk/pong.swf";
+			this.callerUrl = httpProtocal + "://localhost/socket.swf";
 			
+			_delay = delay;
+			_checkPeriod = checkPeriod;
 			this.domain = domain;
 			this.protocol = protocol;
 			this.proxyHost = proxyHost;
@@ -82,11 +96,14 @@ package com.pnwrain.flashsocket
 			ul.addEventListener(Event.COMPLETE, onDiscover);
 			ul.addEventListener(HTTPStatusEvent.HTTP_STATUS, onDiscoverError);
 			ul.addEventListener(IOErrorEvent.IO_ERROR , onDiscoverError);
-
+			
+			
+			_latencies = new Vector.<Number>()
+			addEventListener("clientping", socket_clientping);
 		}
 		
 		protected function onDiscover(event:Event):void{
-			MonsterDebugger.trace(this, "onDiscover: "+event.type);
+			//trace(this, "onDiscover: "+event.type);
 			
 			var response:String = event.target.data;
 			var respData:Array = response.split(":");
@@ -113,7 +130,7 @@ package com.pnwrain.flashsocket
 			
 		}
 		protected function onHandshake(event:Event):void{
-			MonsterDebugger.trace(this, "onHandshake: "+event.type);
+			//trace(this, "onHandshake: "+event.type);
 			
 			loadDefaultPolicyFile(socketURL);
 			webSocket = new WebSocket(this, socketURL, protocol, proxyHost, proxyPort, headers);
@@ -128,9 +145,9 @@ package com.pnwrain.flashsocket
 		}
 		
 		protected function onDiscoverError(event:Event):void{
-			MonsterDebugger.trace(this, "onDiscoverError: "+event.type);
+			//trace(this, "onDiscoverError: "+event.type);
 			if ( event is HTTPStatusEvent ){
-				MonsterDebugger.trace(this, "onDiscoverError status: "+(event as HTTPStatusEvent).status);
+				//trace(this, "onDiscoverError status: "+(event as HTTPStatusEvent).status);
 				if ( (event as HTTPStatusEvent).status != 200){
 					//we were unsuccessful in connecting to server for discovery
 					var fe:FlashSocketEvent = new FlashSocketEvent(FlashSocketEvent.CONNECT_ERROR);
@@ -139,7 +156,7 @@ package com.pnwrain.flashsocket
 			}
 		}
 		protected function onHandshakeError(event:Event):void{
-			MonsterDebugger.trace(this, "onHandshakeError: "+event.type);
+			//trace(this, "onHandshakeError: "+event.type);
 			if ( event is HTTPStatusEvent ){
 				if ( (event as HTTPStatusEvent).status != 200){
 					//we were unsuccessful in connecting to server for discovery
@@ -150,23 +167,23 @@ package com.pnwrain.flashsocket
 		}
 		
 		protected function onClose(event:Event):void{
-			MonsterDebugger.trace(this, "onClose" +  this.channel);
+			//trace(this, "onClose" +  this.channel);
 			var fe:FlashSocketEvent = new FlashSocketEvent(FlashSocketEvent.CLOSE);
 			dispatchEvent(fe);
 		}
 		
 		protected function onConnect(event:Event):void{
-			MonsterDebugger.trace(this, "onConnect" +  this.channel);
+			//trace(this, "onConnect" +  this.channel);
 			var fe:FlashSocketEvent = new FlashSocketEvent(FlashSocketEvent.CONNECT);
 			dispatchEvent(fe);
 		}
 		protected function onIoError(event:Event):void{
-			MonsterDebugger.trace(this, "onIoError");
+			//trace(this, "onIoError");
 			var fe:FlashSocketEvent = new FlashSocketEvent(FlashSocketEvent.IO_ERROR);
 			dispatchEvent(fe);
 		}
 		protected function onSecurityError(event:Event):void{
-			MonsterDebugger.trace(this, "onSecurityError");
+			//trace(this, "onSecurityError");
 			var fe:FlashSocketEvent = new FlashSocketEvent(FlashSocketEvent.SECURITY_ERROR);
 			dispatchEvent(fe);
 		}
@@ -190,20 +207,20 @@ package com.pnwrain.flashsocket
 			//return URLUtil.getServerName(this.callerUrl);
 		}
 		public function log(message:String):void {
-			MonsterDebugger.trace(this, "log: " +  message);
+			//trace(this, "log: " +  message);
 			if (debug) {
-				trace("webSocketLog: " + message);
+				//trace("webSocketLog: " + message);
 			}
 		}
 		
 		public function error(message:String):void {
-			MonsterDebugger.trace(this, "error: " +  message);
-			trace("webSocketError: "  + message);
+			//trace(this, "error: " +  message);
+			//trace("webSocketError: "  + message);
 		}
 		
 		public function fatal(message:String):void {
-			MonsterDebugger.trace(this, "fatal: " +  message);
-			trace("webSocketError: " + message);
+			//trace(this, "fatal: " +  message);
+			//trace("webSocketError: " + message);
 		}
 		
 		/////////////////////////////////////////////////////////////////
@@ -238,7 +255,7 @@ package com.pnwrain.flashsocket
 		public var connecting:Boolean;
 		
 		private function _onMessage(message:String):void{
-			trace("_onMessage", message);
+			//trace("_onMessage", message);
 			//https://github.com/LearnBoost/socket.io-spec#Encoding
 			/*	0		Disconnect
 				1::	Connect
@@ -374,12 +391,33 @@ package com.pnwrain.flashsocket
 					webSocket.send('5:'+messageId+':'+this.channel+':' + com.adobe.serialization.json.JSON.encode({"name":event,"args":msg}));
 				}
 			}catch(err:Error){
-				trace("Unable to send message");
+				trace(this, "Unable to send message");
 			}
 		}
 		
 		public function emit(event:String, msg:Object,  callback:Function = null):void{
 			send(msg, event, callback) 
+		}
+		
+		override public function dispatchEvent(event:Event):Boolean 
+		{
+			var thisdelay:Number = _delay - _latency;
+			//trace( "_delay : " + _delay );
+			//trace( "thisdelay : " + thisdelay );
+			if (thisdelay > 0 && event.type != "clientping") {
+				setTimeout(function ():void {
+					delayedDispatch(event);
+				}, thisdelay);
+				return true;
+			} else {
+				return super.dispatchEvent(event);
+			}
+		}
+		
+		private function delayedDispatch(event:Event):void 
+		{
+			//trace( "FlashSocket.delayedDispatch > event : " + event );
+			super.dispatchEvent(event);
 		}
 		
 		private function _onConnect():void{
@@ -389,12 +427,64 @@ package com.pnwrain.flashsocket
 			
 			var e:FlashSocketEvent = new FlashSocketEvent(FlashSocketEvent.CONNECT);
 			dispatchEvent(e);
+			
+			if(!_pingTimer) {
+				_pingTimer = new Timer(_checkPeriod);
+				_pingTimer.addEventListener(TimerEvent.TIMER, pingTimer_timer, false, 0, true);
+				_pingTimer.start();
+			}
+			
+			startPing();
 		};
+		
+		private function pingTimer_timer(e:TimerEvent):void 
+		{
+			startPing();
+		}
+		
+		private function startPing():void 
+		{
+			_pingSent = getTimer();
+			emit("serverping", null);
+		}
+		
+		private function socket_clientping(e:FlashSocketEvent):void 
+		{
+			// latency on this round trip (assume one way latency is half the round trip)
+			var tlatency:Number = (getTimer() - _pingSent) / 2;
+			_latencies.push(tlatency);
+			
+			//use median of the last 10
+			if (_latencies.length > 10) _latencies.shift();
+			_latency = getMedian(_latencies);
+			//trace( "_latency : " + _latency );
+			
+			// calculate current estimate of server time.
+			var clienttime:Number = new Date().time;
+			var servertime:Number = Number(e.data);
+			//trace( "servertime : " + servertime );
+			_offset = servertime - clienttime + _latency;
+			_estimatedServerTime = clienttime + _offset;
+			
+		}
+		
+		private function getMedian(numberVector:Vector.<Number>):Number 
+		{
+			var vectorCopy:Vector.<Number> = numberVector.slice();
+			vectorCopy.sort(Array.NUMERIC);
+			return numberVector[Math.floor(numberVector.length / 2)];
+		}
+		
 		private function _onDisconnect():void{
 			this.connected = false;
 			this.connecting = false;
 			var e:FlashSocketEvent = new FlashSocketEvent(FlashSocketEvent.DISCONNECT);
 			dispatchEvent(e);
+			if (_pingTimer) {
+				_pingTimer.stop();
+				_pingTimer.removeEventListener(TimerEvent.TIMER, pingTimer_timer);
+				_pingTimer = null;
+			}
 		};
 		
 		private function _encode(messages:*, json:Boolean=false):String{
@@ -410,5 +500,13 @@ package com.pnwrain.flashsocket
 			}
 			return ret;
 		};
+		
+		public function get delay():int {return _delay;}
+		
+		public function set delay(value:int):void { _delay = value; }
+		
+		public function get serverTime():Number {return _estimatedServerTime;}
+		
+		public function set serverTime(value:Number):void { _estimatedServerTime = value; }
 	}
 }

@@ -17,7 +17,6 @@ import mx.events.*;
 import mx.utils.*;
 import bridge.FABridge;
 
-import com.demonsters.debugger.MonsterDebugger;
 
 public class WebSocketMain extends Sprite implements IWebSocketWrapper{
 
@@ -72,18 +71,18 @@ public class WebSocketMain extends Sprite implements IWebSocketWrapper{
 
   public function log(message:String):void {
     //if (debug) {
-	  MonsterDebugger.trace(this, message);
+	  trace(this, message);
       //ExternalInterface.call("webSocketLog", encodeURIComponent("[WebSocket] " + message));
     //}
   }
 
   public function error(message:String):void {
-	  MonsterDebugger.trace(this, "Error: "+message);
+	  trace(this, "Error: "+message);
 	  //ExternalInterface.call("webSocketError", encodeURIComponent("[WebSocket] " + message));
   }
 
   public function fatal(message:String):void {
-	MonsterDebugger.trace(this, "Fatal: "+message);
+	trace(this, "Fatal: "+message);
 	  //ExternalInterface.call("webSocketError", encodeURIComponent("[WebSocket] " + message));
     throw message;
   }
