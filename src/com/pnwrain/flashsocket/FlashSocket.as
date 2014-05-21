@@ -60,7 +60,7 @@ package com.pnwrain.flashsocket
 			var webSocketProtocal:String = "ws";
 			
 			var URLUtil:URL = new URL(domain);
-			if (URLUtil.protocol == "https") {
+			if (URLUtil.protocol == "https:") {
 				httpProtocal = "https";
 				webSocketProtocal = "wss";
 			}
