@@ -2,12 +2,15 @@ package socket.io.parser
 {
 import com.adobe.serialization.json.JSON;
 
+import flash.system.Capabilities;
+
 /**
  * ...
  * @author Robin Wilding
  */
 public class Decoder
 {
+	private static const TRACE_MAX_LENGTH : int = 1024;
 	
 	
 	public function decode(obj:String):Object
@@ -94,8 +97,11 @@ public class Decoder
 				//throw(new Error("Invalid json"));
 			}
 		}
-		
-		trace('decoded ' + str + ' as ' + p);
+
+		if (Capabilities.isDebugger)
+		{
+			trace('decoded ' + str.substr(0, TRACE_MAX_LENGTH) + ' as ' + p);
+		}
 		return p;
 	}
 }

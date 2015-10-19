@@ -51,11 +51,11 @@ public class Encoder
 		
 		// attachments if we have them
 		// RW Unsupported Binary
-		/*if (exports.BINARY_EVENT == obj.type || exports.BINARY_ACK == obj.type)
+		if (Parser.BINARY_EVENT == obj.type || Parser.BINARY_ACK == obj.type)
 		   {
-		   str += obj.attachments;
+		   str += '1';
 		   str += '-';
-		 }*/
+		 }
 		
 		// if we have a namespace other than `/`
 		// we append it followed by a comma `,`
@@ -85,8 +85,10 @@ public class Encoder
 				str += ',';
 			str += com.adobe.serialization.json.JSON.encode(obj.data);
 		}
+
+		str = str.replace("'true'", 'true');
 		
-		trace('encoded ' + obj + ' as ' + str);
+		trace('encoded ' + obj + ' as ' + str.substr(0, 2048));
 		return str;
 	}
 

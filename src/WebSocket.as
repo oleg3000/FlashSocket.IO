@@ -11,8 +11,10 @@ package  {
 	import com.hurlant.crypto.tls.TLSEngine;
 	import com.hurlant.crypto.tls.TLSSecurityParameters;
 	import com.hurlant.crypto.tls.TLSSocket;
+import com.hurlant.util.Base64;
+import com.hurlant.util.Hex;
 
-	import flash.display.*;
+import flash.display.*;
 	import flash.errors.*;
 	import flash.events.*;
 	import flash.external.*;
@@ -20,7 +22,6 @@ package  {
 	import flash.system.*;
 	import flash.utils.*;
 
-	import mx.controls.*;
 	import mx.core.*;
 	import mx.events.*;
 	import mx.utils.*;
@@ -71,8 +72,7 @@ package  {
 	  private var readyState:int = CONNECTING;
 	  
 	  private var logger:IWebSocketLogger;
-	  private var base64Encoder:Base64Encoder = new Base64Encoder();
-	  
+
 	  public function WebSocket(
 		  id:int, url:String, protocols:Array, origin:String,
 		  proxyHost:String, proxyPort:int,
@@ -144,10 +144,24 @@ package  {
 	  public function getAcceptedProtocol():String {
 		return this.acceptedProtocol;
 	  }
-	  
+
+		public function sendBinary(dataBytes:ByteArray):int
+		{
+			var frame:WebSocketFrame = new WebSocketFrame();
+			frame.opcode = OPCODE_BINARY;
+			frame.payload = dataBytes;
+			frame.mask = true;
+			if (sendFrame(frame)) {
+				return -1;
+			} else {
+				return dataBytes.length;
+			}
+		}
+
 	  public function send(encData:String):int {
 		var data:String;
 		try {
+
 		  data = decodeURIComponent(encData);
 		} catch (ex:URIError) {
 		  logger.error("SYNTAX_ERR: URIError in send()");
@@ -474,12 +488,18 @@ package  {
 		  fatal("Send frame size too large");
 		}
 		header.writeBytes(mask);
-		
+
+//	    trace("Header: " + Hex.fromArray(header).substr(0,2048));
+
 		var maskedPayload:ByteArray = new ByteArray();
 		maskedPayload.length = frame.payload.length;
 		for (i = 0; i < frame.payload.length; i++) {
 		  maskedPayload[i] = mask[i % 4] ^ frame.payload[i];
 		}
+
+//		  trace("Data: " + Hex.fromArray(maskedPayload).substr(0,2048));
+//		  trace("Mask: " + Hex.fromArray(mask).substr(0,2048));
+
 
 		try {
 		  socket.writeBytes(header);
@@ -579,9 +599,7 @@ package  {
 		for (var i:int = 0; i < vals.length; ++i) {
 			vals[i] = randomInt(0, 127);
 		}
-		base64Encoder.reset();
-		base64Encoder.encodeBytes(vals);
-		return base64Encoder.toString();
+		return Base64.encodeByteArray(vals);
 	  }
 	  
 	  private function readUTFBytes(buffer:ByteArray, start:int, numBytes:int):String {

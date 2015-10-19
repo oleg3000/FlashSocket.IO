@@ -92,7 +92,7 @@ public class FABridge extends EventDispatcher implements IMXMLObject
     private var customSerializersMap:Dictionary = new Dictionary();
 
     /**
-     * stores a map of object ID's and their reference count
+     * stores a Main of object ID's and their reference count
      */
     private var refMap:Dictionary = new Dictionary();
     /**
@@ -133,7 +133,7 @@ public class FABridge extends EventDispatcher implements IMXMLObject
     public function incRef(objId:int):void
     {
         if(refMap[objId] == null) {
-            //the object is being created; we now add it to the map and set its refCount = 1
+            //the object is being created; we now add it to the Main and set its refCount = 1
             refMap[objId] = 1;
         } else {
             refMap[objId] = refMap[objId] +1;

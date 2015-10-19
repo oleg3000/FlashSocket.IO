@@ -1,6 +1,5 @@
 package com.pnwrain.flashsocket
 {
-	import com.adobe.serialization.json.JSON;
 	import com.jimisaacs.data.URL;
 	import com.pnwrain.flashsocket.events.FlashSocketEvent;
 	import flash.events.Event;
@@ -14,7 +13,8 @@ package com.pnwrain.flashsocket
 	import flash.net.URLRequest;
 	import flash.net.URLRequestMethod;
 	import flash.system.Security;
-	import flash.utils.Timer;
+import flash.utils.ByteArray;
+import flash.utils.Timer;
 	import socket.io.parser.Decoder;
 	import socket.io.parser.Encoder;
 	import socket.io.parser.Parser;
@@ -54,6 +54,8 @@ package com.pnwrain.flashsocket
 		private var heartBeatTimeout:int;
 		public var connected:Boolean;
 		public var connecting:Boolean;
+
+		private var _counter : int = 0;
 		
 		public function FlashSocket(domain:String, protocol:String = null, proxyHost:String = null, proxyPort:int = 0, headers:String = null)
 		{
@@ -71,7 +73,7 @@ package com.pnwrain.flashsocket
 			}
 			protocol = httpProtocal;
 			
-			domain = URLUtil.host;
+			domain = URLUtil.host.split("?")[0];
 			
 			this.socketURL = webSocketProtocal + "://" + domain + "/socket.io/?EIO=2&transport=websocket";
 			this.callerUrl = httpProtocal + "://" + domain;
@@ -86,7 +88,7 @@ package com.pnwrain.flashsocket
 			if (this.channel && this.channel.length > 0 && this.channel.indexOf("/") !=
 				0)
 			{
-				this.channel = "/" + this.channel;
+				;//this.channel = "/" + this.channel;
 			}
 			
 			var r:URLRequest = new URLRequest();
@@ -101,18 +103,23 @@ package com.pnwrain.flashsocket
 		
 		protected function getConnectionUrl(httpProtocal:String, domain:String):String
 		{
-			var connectionUrl:String = httpProtocal + "://" + domain + "/socket.io/?EIO=2&time=" +
-				new Date().getTime() + _queryUrlSuffix.split("?").join("&");
+			var connectionUrl:String = httpProtocal + "://" + domain + "/socket.io/?EIO=2&t=" +
+				getTimeCounter() + _queryUrlSuffix.split("?").join("&");
 			// socket.io 1.0 starts with a polling transport and then upgrades later. It requires this to be set in the url.
 			connectionUrl += "&transport=polling"
 			return connectionUrl;
+		}
+
+		private function getTimeCounter() : String
+		{
+			return new Date().getTime() + "-" + _counter++;
 		}
 		
 		protected function onDiscover(event:Event):void
 		{
 			var response:String = event.target.data;
 			response = response.substr(response.indexOf("{"));
-			var responseObj:Object = com.adobe.serialization.json.JSON.decode(response);
+			var responseObj:Object = JSON.parse(response);
 			
 			sessionID = responseObj.sid;
 			heartBeatTimeout = responseObj.pingTimeout;
@@ -205,7 +212,7 @@ package com.pnwrain.flashsocket
 		protected function loadDefaultPolicyFile(wsUrl:String):void
 		{
 			var URLUtil:URL = new URL(wsUrl);
-			var policyUrl:String = "xmlsocket://" + URLUtil.hostname + ":843";
+			var policyUrl:String = "xmlsocket://" + URLUtil.hostname.split('?')[0] + ":843";
 			
 			Security.loadPolicyFile(policyUrl);
 		}
@@ -329,8 +336,11 @@ package com.pnwrain.flashsocket
 				 */
 				switch (packet.type)
 				{
-					case Parser.CONNECT: 
-						if (packet.nsp == this.channel)
+					case Parser.CONNECT:
+						//do not check channels
+						trace(":: IO Connected :: " + packet.nsp + " == " + this.channel);
+						this._onConnect(packet);
+						/*if (packet.nsp == this.channel)
 						{
 							this._onConnect(packet);
 							
@@ -346,7 +356,7 @@ package com.pnwrain.flashsocket
 							{
 								
 							}
-						}
+						}*/
 						break;
 					
 					case Parser.EVENT:
@@ -405,7 +415,31 @@ package com.pnwrain.flashsocket
 			}
 		
 		}
-		
+
+        public function sendBinary(msg:ByteArray, event:String = null, callback:Function = null):void
+        {
+
+            var packet:Object = {type: Parser.BINARY_EVENT, data: [event,{_placeholder:true, num:0}]/*, nsp: this.channel*/}
+
+            if (null != callback)
+            {
+                var messageId:int = this.ackId;
+                this.acks[this.ackId] = callback;
+                this.ackId++;
+                packet.id = messageId
+            }
+
+            try
+            {
+                webSocket.send((new Encoder().encodeAsString(packet)).replace('"true"', 'true'));
+				webSocket.sendBinary(msg);
+            }
+            catch (err:Error)
+            {
+                fatal("Unable to send message: " + err.message);
+            }
+        }
+
 		public function send(msg:Object, event:String = null, callback:Function = null):void
 		{
 			if (msg as Array)
@@ -413,10 +447,10 @@ package com.pnwrain.flashsocket
 				(msg as Array).unshift(event);
 			} else
 			{
-				msg = [event, msg];
+				msg = msg ? [event, msg] : [event];
 			}
 			
-			var packet:Object = {type: Parser.EVENT, data: msg, nsp: this.channel}
+			var packet:Object = {type: Parser.EVENT, data: msg/*, nsp: this.channel*/}
 			
 			if (null != callback)
 			{
@@ -436,7 +470,7 @@ package com.pnwrain.flashsocket
 			}
 		}
 		
-		public function emit(event:String, msg:Object, callback:Function = null):void
+		public function emit(event:String, msg:Object=null, callback:Function = null):void
 		{
 			send(msg, event, callback)
 		}

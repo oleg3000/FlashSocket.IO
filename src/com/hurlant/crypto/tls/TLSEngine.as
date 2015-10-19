@@ -240,14 +240,14 @@ package com.hurlant.crypto.tls {
 		}
 		
 		
-		// Protocol handler map, provides a mapping of protocol types to individual packet handlers
+		// Protocol handler Main, provides a mapping of protocol types to individual packet handlers
 		private var protocolHandlers:Object = { 23 : parseApplicationData, // PROTOCOL_APPLICATION_DATA
 											  22 : parseHandshake, // PROTOCOL_HANDSHAKE
 											  21 : parseAlert, // PROTOCOL_ALERT
 											  20 : parseChangeCipherSpec }; // PROTOCOL_CHANGE_CIPHER_SPEC
 		
 		/**
-		 * Modified to support the notion of a handler map(see above ), since it makes for better clarity (IMHO of course).
+		 * Modified to support the notion of a handler Main(see above ), since it makes for better clarity (IMHO of course).
 		 */
 		private function parseOneRecord(type:uint, length:uint, p:ByteArray):void {
 			p = _currentReadState.decrypt(type, length, p);
@@ -280,7 +280,7 @@ package com.hurlant.crypto.tls {
 		private static const HANDSHAKE_CLIENT_KEY_EXCHANGE:uint = 16;
 		private static const HANDSHAKE_FINISHED:uint = 20;
 
-		// Server handshake handler map
+		// Server handshake handler Main
 		private var handshakeHandlersServer:Object = { 0 : notifyStateError, // HANDSHAKE_HELLO_REQUEST
 													   1 : parseHandshakeClientHello, // HANDSHAKE_CLIENT_HELLO
 													   2 : notifyStateError, // HANDSHAKE_SERVER_HELLO 
@@ -293,7 +293,7 @@ package com.hurlant.crypto.tls {
 													   20 : verifyHandshake // HANDSHAKE_FINISHED													   
 														};
 														
-		// Client handshake handler map										
+		// Client handshake handler Main
 		private var handshakeHandlersClient:Object = { 0 : parseHandshakeHello, // HANDSHAKE_HELLO_REQUEST
 													   1 : notifyStateError, // HANDSHAKE_CLIENT_HELLO
 													   2 : parseHandshakeServerHello, // HANDSHAKE_SERVER_HELLO
@@ -345,7 +345,7 @@ package com.hurlant.crypto.tls {
 				_handshakePayloads.writeBytes(p, 0, length+4);
 			} 
 			
-			// Surf the handler map and find the right handler for this handshake packet type. 
+			// Surf the handler Main and find the right handler for this handshake packet type.
 			// I modified the individual handlers so they encapsulate all possible knowledge 
 			// about the incoming packet type, so no previous handling or massaging of the data 
 			// is required, as was the case using the switch statement. BP
